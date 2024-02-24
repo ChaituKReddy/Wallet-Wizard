@@ -12,11 +12,49 @@ const Table = require("cli-table3");
 const figlet = require("figlet");
 const fs = require("fs");
 const path = require("path");
+const yargs = require("yargs");
 
 async function generateSeedPhrase() {
   const mnemonic = bip39.generateMnemonic();
   return mnemonic;
 }
+
+const validNetworks = [
+  "Ethereum",
+  "Bitcoin",
+  "Bitcoin(SegWit)",
+  "Solana",
+  "Tezos",
+  "Litecoin",
+  "Dogecoin",
+  "Dogecoin(SegWit)",
+];
+
+const argv = yargs
+  .option("network", {
+    alias: "n",
+    describe: "Choose the network to generate wallets for",
+    type: "string",
+    choices: validNetworks,
+  })
+  .option("wallets", {
+    alias: "w",
+    describe: "Specify the number of wallets to generate",
+    type: "number",
+    default: 1,
+  })
+  .check((argv) => {
+    if (
+      isNaN(argv.wallets) ||
+      argv.wallets <= 0 ||
+      !Number.isInteger(argv.wallets)
+    ) {
+      throw new Error("The --wallets (-w) option must be a positive integer.");
+    }
+    return true;
+  })
+  .help()
+  .alias("help", "h").argv;
 
 async function askUserInput() {
   const questions = [
@@ -24,24 +62,15 @@ async function askUserInput() {
       type: "list",
       name: "network",
       message: "Which network do you want to generate wallets for?",
-      choices: [
-        "Ethereum",
-        "Bitcoin",
-        "Bitcoin(SegWit)",
-        "Solana",
-        "Tezos",
-        "Litecoin",
-        "Dogecoin",
-        "Dogecoin(SegWit)",
-      ],
-      default: "Ethereum",
+      choices: validNetworks,
+      default: argv.network || "Ethereum",
       loop: false,
     },
     {
       type: "input",
-      name: "numberOfWallets",
+      name: "wallets",
       message: "How many wallets do you want to generate?",
-      default: 1,
+      default: argv.wallets || 1,
       validate: (value) => {
         const valid = !isNaN(parseInt(value)) && parseInt(value) > 0;
         return valid || "Please enter a positive number";
@@ -69,13 +98,19 @@ async function askUserInput() {
     },
   ];
 
-  return inquirer.prompt(questions);
+  const unansweredQuestions = questions.filter((question) => {
+    return argv[question.name] === undefined;
+  });
+
+  return inquirer.prompt(unansweredQuestions);
 }
 
 async function generateWallets() {
   console.log(figlet.textSync("Wallet Wizard", { horizontalLayout: "full" }));
 
   const userInputs = await askUserInput();
+  const network = argv.network || userInputs.network;
+  const wallets = argv.wallets || userInputs.wallets;
   const mnemonic =
     userInputs.mnemonicOption === "Generate New"
       ? await generateSeedPhrase()
@@ -85,11 +120,11 @@ async function generateWallets() {
     head: ["Wallet", "Private Key"],
   });
 
-  let wallets = [];
+  let user_wallets = [];
 
-  for (let i = 0; i < userInputs.numberOfWallets; i++) {
+  for (let i = 0; i < wallets; i++) {
     let walletDetails;
-    switch (userInputs.network) {
+    switch (network) {
       case "Ethereum":
         walletDetails = await generateEthereumWallet(mnemonic, i);
         break;
@@ -117,7 +152,7 @@ async function generateWallets() {
     }
 
     if (walletDetails) {
-      wallets.push(walletDetails);
+      user_wallets.push(walletDetails);
       table.push([walletDetails.address, walletDetails.privateKey]);
     }
   }
