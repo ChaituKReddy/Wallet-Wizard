@@ -55,6 +55,7 @@
     "ethereumjs-wallet": "^1.0.2",
     "figlet": "^1.7.0",
     "inquirer": "^8.2.6",
-    "tiny-secp256k1": "^2.2.3"
+    "tiny-secp256k1": "^2.2.3",
+    "yargs": "^17.7.2"
   }
 }
